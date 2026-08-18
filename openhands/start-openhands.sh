@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start OpenHands Agent Canvas. Stack definition: openhands/compose.yml.
-# Stop with ./tools/stop-openhands.sh.
+# Stop with ./stop-openhands.sh.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,4 +43,4 @@ if is_wsl; then
     fi
 fi
 echo ""
-echo "Stop with: ./tools/stop-openhands.sh"
+echo "Stop with: ./stop-openhands.sh"
