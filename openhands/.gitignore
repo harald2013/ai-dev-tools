@@ -1,0 +1,6 @@
+# Runtime secrets and generated state — never commit.
+.openhands/auth/
+.openhands/agent-canvas/api-key.txt
+.openhands/agent-canvas/secret-key.txt
+.openhands/agent-canvas/bash_events/
+.openhands/automation/

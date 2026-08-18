@@ -1,0 +1,47 @@
+# OpenHands Agent Canvas (official image).
+# Docs: https://docs.openhands.dev/openhands/usage/agent-canvas/setup#docker
+#
+# Source of truth for image, project name, port, mounts, and bind-mount
+# ownership. Start with ./tools/start-openhands.sh (thin wrapper).
+#
+# Host port 18040 is the reserved local-tool slot
+# (docs/operations/port-ranges.md). Override with OPENHANDS_PORT.
+#
+# Bind mounts are relative to this file, so any checkout path works:
+#   ./.openhands                  -> /home/openhands/.openhands  (your configs)
+#   ../openhandswork/projects     -> /projects
+#   ../openhandswork/workspace    -> /workspace
+#
+# Do not seed files under .openhands from Compose or the start script.
+# The process runs as the host uid (OPENHANDS_UID/GID, default 1000) so
+# configs are visible and commitable from the checkout. HOME stays
+# /home/openhands so the app still writes to the bind mount.
+
+name: openhands
+
+x-openhands-image: &openhands-image ghcr.io/openhands/agent-canvas:latest
+
+x-openhands-bind-mounts: &openhands-bind-mounts
+  - ./.openhands:/home/openhands/.openhands
+  - ../openhandswork/projects:/projects
+  - ../openhandswork/workspace:/workspace
+
+services:
+  agent-canvas:
+    image: *openhands-image
+    user: "0"
+    ports:
+      - "${OPENHANDS_PORT:-18040}:8000"
+    volumes: *openhands-bind-mounts
+    environment:
+      PORT: "8000"
+      HOME: /home/openhands
+      OPENHANDS_UID: "${OPENHANDS_UID:-1000}"
+      OPENHANDS_GID: "${OPENHANDS_GID:-1000}"
+    entrypoint: ["tini", "--", "sh", "-c"]
+    command:
+      - |
+        chmod 755 /home/openhands
+        chown -R "$$OPENHANDS_UID:$$OPENHANDS_GID" /home/openhands/.openhands /projects /workspace
+        exec setpriv --reuid="$$OPENHANDS_UID" --regid="$$OPENHANDS_GID" --clear-groups -- /opt/agent-canvas/entrypoint.sh
+    restart: unless-stopped
