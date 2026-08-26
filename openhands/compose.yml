@@ -2,20 +2,29 @@
 # Docs: https://docs.openhands.dev/openhands/usage/agent-canvas/setup#docker
 #
 # Source of truth for image, project name, port, mounts, and bind-mount
-# ownership. Start with ./tools/start-openhands.sh (thin wrapper).
+# ownership. Start with: docker compose -f openhands/compose.yml up -d
+# Stop with:             docker compose -f openhands/compose.yml down
 #
 # Host port 18040 is the reserved local-tool slot
 # (docs/operations/port-ranges.md). Override with OPENHANDS_PORT.
 #
 # Bind mounts are relative to this file, so any checkout path works:
-#   ./.openhands                  -> /home/openhands/.openhands  (your configs)
+#   ./.openhands                  -> /home/openhands/.openhands  (generated state: keys, conversations, automation DB)
 #   ../openhandswork/projects     -> /projects
 #   ../openhandswork/workspace    -> /workspace
+# Missing directories are created automatically (by Docker, then chowned
+# below) — nothing needs to be prepared on the host. Everything under
+# .openhands is runtime-generated (verified by running this compose file);
+# there is no committed config template to seed.
 #
-# Do not seed files under .openhands from Compose or the start script.
-# The process runs as the host uid (OPENHANDS_UID/GID, default 1000) so
-# configs are visible and commitable from the checkout. HOME stays
-# /home/openhands so the app still writes to the bind mount.
+# The process runs as OPENHANDS_UID/GID (default 1000:1000) so generated
+# state stays owned by the host user. On Linux, if your user isn't UID/GID
+# 1000, copy .env.example to .env next to this file and fill in your own
+# values. HOME stays /home/openhands so the app writes there; chown targets
+# /home/openhands itself (not just its .openhands subdir), because the image
+# bakes the home directory as owned by its own build-time user — without
+# this, tools that write straight under $HOME (e.g. the browser tool's
+# ~/.config) fail with a permission error at startup.
 
 name: openhands
 
@@ -42,6 +51,6 @@ services:
     command:
       - |
         chmod 755 /home/openhands
-        chown -R "$$OPENHANDS_UID:$$OPENHANDS_GID" /home/openhands/.openhands /projects /workspace
+        chown -R "$$OPENHANDS_UID:$$OPENHANDS_GID" /home/openhands /projects /workspace
         exec setpriv --reuid="$$OPENHANDS_UID" --regid="$$OPENHANDS_GID" --clear-groups -- /opt/agent-canvas/entrypoint.sh
     restart: unless-stopped

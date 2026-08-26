@@ -23,10 +23,10 @@ Stand der Recherche (Primärquelle `https://docs.openhands.dev/`, Sekundärquell
 
 | Klassisches Wissen (potenziell veraltet)                     | Aktueller Stand in diesem Setup |
 |----------------------------------------------------------------|----------------------------------|
-| Konfiguration über `config.toml`, Sektion `[mcp]` in TOML      | Konfiguration über `~/.openhands/settings.json` + `~/.openhands/agent-profiles/*.json` (JSON, Schema-versioniert). `config.toml` existiert nur noch in der Legacy-/OSS-App, **nicht** in Agent Canvas. |
-| Runtime-Sandbox pro Konversation via Docker-Socket-Mount (`SANDBOX_BASE_CONTAINER_IMAGE`) | Der Self-Hosted-Single-Container (`ghcr.io/openhands/agent-canvas:latest`) bündelt Canvas-UI, Agent Server und Automation Server **in einem Prozess**. **Keine Per-Konversation-Isolation** — alle Konversationen teilen sich Prozess, Dateisystem und `/workspace`. Das ist laut Issue #15630 ein bekanntes, noch offenes Limit, kein Bug in unserer Config. |
-| Custom-Sandbox über `Dockerfile` + `docker.sock`-Mount          | Custom-Tools im Ausführungs-Image sind nur relevant, wenn man vom Single-Container-Modus auf ein Remote-/Cloud-Backend mit `AGENT_SERVER_IMAGE_REPOSITORY` / `AGENT_SERVER_IMAGE_TAG` umsteigt (siehe [§6](#6-optionale-erweiterung-custom-agent-server-image)). Im Default-Setup dieses Repos gibt es **keinen** separaten Sandbox-Container. |
-| MCP-Server in `[mcp].stdio_servers` / `.sse_servers` (TOML)     | MCP-Server werden im Feld `agent_settings.mcp_config` des jeweiligen Agent-Profils (JSON) bzw. über die UI unter `Settings → MCP` gepflegt. |
+| Konfiguration über `config.toml`, Sektion `[mcp]` in TOML      | **Live verifiziert** (Container tatsächlich per `docker compose -f openhands/compose.yml up` gestartet, SDK-Banner meldet `OpenHands SDK v1.42.1`): Es gibt **weder** `config.toml` **noch** `settings.json`/`agent-profiles/*.json` auf der Platte. Der komplette `.openhands/`-Baum ist generiertes Runtime-State (siehe [§2](#2-iac-dateistruktur-unter-openhands)) — keine editierbare Config-Datei. LLM-/Agent-Konfiguration läuft über die Web-UI der laufenden App (`Settings`, erreichbar unter `/canvas`). |
+| Runtime-Sandbox pro Konversation via Docker-Socket-Mount (`SANDBOX_BASE_CONTAINER_IMAGE`) | **Live verifiziert** (`ps aux` im laufenden Container): Agent Server (Port 18000), Automation Server (Port 18001) und der Canvas-Static-Server (Port 8000, geroutet auf 18040) laufen als Prozesse **im selben Container**, kein separater Sandbox-Container, kein Docker-Socket-Mount in `compose.yml`. **Keine Per-Konversation-Isolation** — alle Konversationen teilen sich Prozess, Dateisystem und `/workspace`. Laut Issue #15630 ein bekanntes, offenes Limit, kein Bug in unserer Config. |
+| Custom-Sandbox über `Dockerfile` + `docker.sock`-Mount          | Custom-Tools im Ausführungs-Image sind nur relevant, wenn man vom Single-Container-Modus auf ein Remote-/Cloud-Backend mit `AGENT_SERVER_IMAGE_REPOSITORY` / `AGENT_SERVER_IMAGE_TAG` umsteigt (siehe [§7](#7-optionale-erweiterung-custom-agent-server-image)). Im Default-Setup dieses Repos gibt es **keinen** separaten Sandbox-Container. |
+| MCP-Server in `[mcp].stdio_servers` / `.sse_servers` (TOML) oder in einem JSON-Agent-Profil | **Nicht verifiziert.** Da weder `config.toml` noch ein JSON-Profil existieren, bleibt nur die Web-UI (`Settings → MCP`, falls in dieser Version vorhanden) als bekannter Weg. Ob es zusätzlich einen deklarativen Mechanismus gibt, wurde nicht geprüft — vor produktivem MCP-Einsatz in der UI konfigurieren und beobachten, was sich unter `.openhands/` ändert, statt ein Schema zu raten. |
 
 **Konsequenz:** Wo diese Datei von einer "sauberen" Control-Plane/Runtime-Trennung
 mit eigenem Sandbox-Dockerfile spricht, ist das ein **optionaler Erweiterungspfad**,
@@ -34,7 +34,7 @@ kein Ist-Zustand. Der Ist-Zustand ist ein bewusst einfacher, nicht isolierter
 Single-Container-Betrieb für Trusted-Environment-Nutzung (lokale Entwicklungs-
 maschine, ein Nutzer). Jeder Agent, der das ändern will, muss zuerst gegen
 `docs.openhands.dev` verifizieren, dass sich daran nichts geändert hat (siehe
-[§7](#7-regeln-für-künftige-ki-agenten)).
+[§9](#9-regeln-für-künftige-ki-agenten)).
 
 ---
 
@@ -88,17 +88,38 @@ openhands/
 ├── .env.example            # versioniertes Template für Host-Overrides
 ├── .env                     # NICHT committed — echte UID/GID/Secrets
 ├── .gitignore
-├── .openhands/              # Bind-Mount-Ziel: Konfiguration & Runtime-State
-│   ├── settings.json         # aktives Profil, LLM-/Conversation-Settings
-│   ├── agent-profiles/       # ein JSON pro Agent-Profil (siehe §4)
-│   │   └── *.json
-│   ├── microagents/          # optional: globale Skills (nicht repo-gebunden)
-│   ├── auth/                  # gitignored — Session-/OAuth-State
-│   ├── cache/                  # gitignored — Runtime-Cache
-│   └── secrets.json            # gitignored — niemals committen
+├── .openhands/              # Bind-Mount-Ziel, komplett generiert — siehe unten
 └── sandbox/                 # OPTIONAL, nur bei Umstieg auf Remote-Backend
-    └── Dockerfile            # Custom Agent-Server-Image, siehe §6
+    └── Dockerfile            # Custom Agent-Server-Image, siehe §7
 ```
+
+**`.openhands/` ist zu 100 % generiertes Runtime-State, kein Config-Template.**
+Verifiziert durch tatsächlichen Start via `docker compose -f openhands/compose.yml
+up -d --wait` gegen dieses Repo (SDK-Banner: `OpenHands SDK v1.42.1`). Der
+Container legt beim ersten Start folgenden Baum an — nichts davon existiert
+vorher, nichts davon wird committed (`.gitignore` schließt `.openhands/` daher
+pauschal aus, siehe [§9](#9-regeln-für-künftige-ki-agenten) Punkt 4):
+
+```
+.openhands/
+├── agent-canvas/
+│   ├── api-key.txt       # generiert, chmod 600 — Backend-API-Key
+│   ├── secret-key.txt    # generiert, chmod 600 — OH_SECRET_KEY-Äquivalent
+│   └── conversations/    # per-Konversation-State
+├── automation/
+│   └── automations.db     # SQLite — Automation-/Cron-Läufe
+├── storage/                # leer bis zur ersten Nutzung
+└── workspaces/              # leer bis zur ersten Nutzung
+```
+
+Es gibt **kein** `settings.json`, **kein** `agent-profiles/`, **kein**
+`microagents/`-Verzeichnis und **kein** `secrets.json` auf der Platte.
+Konfiguration läuft über die Web-UI unter `Settings` in der laufenden App
+(`http://localhost:${OPENHANDS_PORT:-18040}/canvas`); wie LLM-/Agent-/MCP-
+Einstellungen serverseitig persistiert werden (vermutlich in `automations.db`
+oder `agent-canvas/conversations/`), ist ungeklärt und vor Bedarf gegen den
+laufenden Container zu prüfen, statt eine Datei-/Schema-Vermutung neu
+anzulegen.
 
 Regeln zu dieser Struktur:
 
@@ -172,7 +193,7 @@ services:
     command:
       - |
         chmod 755 /home/openhands
-        chown -R "$$OPENHANDS_UID:$$OPENHANDS_GID" /home/openhands/.openhands /projects /workspace
+        chown -R "$$OPENHANDS_UID:$$OPENHANDS_GID" /home/openhands /projects /workspace
         exec setpriv --reuid="$$OPENHANDS_UID" --regid="$$OPENHANDS_GID" --clear-groups -- /opt/agent-canvas/entrypoint.sh
     restart: unless-stopped
 ```
@@ -185,87 +206,63 @@ Anmerkungen:
   Bind-Mount-Inhalte vom Host-User schreib-/lesbar bleiben, **kein**
   Privilege-Escalation-Risiko, solange der Container selbst vertrauenswürdig
   bleibt.
+- `chown` läuft explizit gegen `/home/openhands` selbst, nicht nur gegen den
+  `.openhands`-Bind-Mount. **Live verifiziert:** Ohne diesen Fix gehört das
+  Home-Verzeichnis im Image einem Build-Zeit-User, nicht `OPENHANDS_UID`; Tools,
+  die direkt unter `$HOME` schreiben (z. B. der Browser-Tool-Preload nach
+  `~/.config/browseruse`), scheitern dann mit `PermissionError` beim Start
+  (sichtbar in den Logs als "Tool preload service failed to start"). Der
+  Server selbst läuft trotzdem weiter — es ist ein Funktions-, kein
+  Startausfall.
 - Zusätzliche relevante Env-Vars (bei Bedarf ergänzen, nicht hart einbrennen):
   `LOCAL_BACKEND_API_KEY` (Pflicht nur im `--public`-Modus, sonst Auto-Generierung),
   `OH_SECRET_KEY` (schützt gespeicherte Settings/Secrets),
   `OH_AGENT_SERVER_VERSION` (pinnt eine bestimmte Agent-Server-Version).
 - `latest` als Image-Tag ist für ein reproduzierbares Setup grundsätzlich ein
-  Zielkonflikt (IaC-Prinzip "versioniert"). Vor einem Pin auf eine konkrete
-  Version die aktuell unterstützten Tags auf `ghcr.io/openhands/agent-canvas`
-  bzw. in den Release-Notes von `docs.openhands.dev` prüfen — nicht blind
-  einen alten Tag aus Trainingsdaten eintragen.
+  Zielkonflikt (IaC-Prinzip "versioniert"). **Live gegen die Registry geprüft**
+  (`ghcr.io/v2/openhands/agent-canvas/tags/list`): Es existieren aktuell
+  **keine** semantisch versionierten Release-Tags (kein `1.x.y`) — nur
+  `latest`, `main`, PR-Tags und `sha-<commit>`-Tags. Ein reproduzierbarer Pin
+  ist damit nur über einen `sha-<commit>`-Tag möglich, nicht über eine
+  "stabile" Versionsnummer. Vor einem Pin die Tag-Liste erneut live abfragen
+  (Tags verfallen schnell) und abwägen, ob ein an einen Commit gebundener Tag
+  den Wartungsaufwand wert ist — im Trusted-Single-User-Setup dieses Repos
+  überwiegt aktuell die Einfachheit von `latest`.
 
 ---
 
-## 5. Konfiguration: `settings.json` & `agent-profiles/*.json`
+## 5. Konfiguration: ausschließlich über die Web-UI
 
-Agent Canvas verwendet **kein** `config.toml`. Konfiguration ist JSON,
-Schema-versioniert (`schema_version`-Felder), und liegt unter
-`.openhands/settings.json` (aktives Profil + globale Conversation-Settings)
-sowie `.openhands/agent-profiles/<name>.json` (ein Profil = LLM, Agent-Kind,
-Condenser, Verification, MCP).
-
-Minimal-Template für ein neues Agent-Profil:
-
-```json
-{
-  "schema_version": 2,
-  "name": "example-profile",
-  "agent_kind": "openhands",
-  "agent": "CodeActAgent",
-  "llm": {
-    "model": "<provider>/<model-id>",
-    "api_key": null,
-    "timeout": 300,
-    "caching_prompt": true
-  },
-  "mcp_config": {},
-  "condenser": {
-    "enabled": true,
-    "condenser_kind": "llm_summarizing"
-  }
-}
-```
+Agent Canvas verwendet in dieser Version **weder** `config.toml` **noch**
+eine editierbare `settings.json`/`agent-profiles/*.json`. Live gegen den
+laufenden Container verifiziert (siehe [§2](#2-iac-dateistruktur-unter-openhands)):
+Der einzige bekannte Konfigurationsweg ist die Web-UI der laufenden App unter
+`http://localhost:${OPENHANDS_PORT:-18040}/canvas` → `Settings` (LLM-Provider,
+API-Keys, Agent-Auswahl, ggf. MCP). Es gibt kein Datei-Template, das dieses
+Repo dafür committen könnte — die Einstellungen landen serverseitig
+irgendwo unter dem generierten `.openhands/`-Baum (vermutlich `automation/
+automations.db` und/oder `agent-canvas/conversations/`), aber welches
+Feld/Schema das im Detail ist, wurde nicht reverse-engineered.
 
 ### MCP-Server konfigurieren
 
-MCP wird **nicht** über TOML gepflegt, sondern entweder über die UI
-(`Settings → MCP`) oder deklarativ im Feld `mcp_config` eines Agent-Profils.
-Das dokumentierte JSON-Schema dafür (SDK-Format, `mcpServers`-Map):
+**Nicht verifiziert, kein Schema hier dokumentieren.** Vor dem ersten
+produktiven MCP-Einsatz: in der laufenden UI unter `Settings → MCP` (falls
+vorhanden) konfigurieren, danach mit `docker compose -f openhands/compose.yml
+exec agent-canvas sh -c 'find /home/openhands/.openhands -newer
+/home/openhands/.openhands/automation/automations.db'` (oder einfacher:
+Zeitstempel vor/nach Vergleich) beobachten, welche Datei sich ändert — und
+erst dann diese Sektion mit dem tatsächlichen Format befüllen, statt ein
+Schema aus Trainingsdaten oder einer möglicherweise nicht zu Agent Canvas
+passenden Doku-Seite zu übernehmen (siehe [§0](#0-zuerst-lesen-wissensstand-vs-realität-kritisch)).
 
-```json
-{
-  "mcp_config": {
-    "mcpServers": {
-      "fetch": {
-        "command": "uvx",
-        "args": ["mcp-server-fetch"]
-      },
-      "remote-example": {
-        "url": "https://api.example.com/mcp",
-        "transport": "http",
-        "auth": "oauth"
-      }
-    }
-  }
-}
-```
+### Secrets aus der UI
 
-> Dieses Feld ist im Ist-Zustand des Repos leer (`"mcp_config": {}`). Vor dem
-> ersten produktiven Einsatz eines MCP-Servers das exakte Schema gegen
-> `https://docs.openhands.dev/openhands/usage/settings/mcp-settings`
-> gegenprüfen — es kann sich zwischen Agent-Canvas-Versionen ändern.
-
-### Secrets in Profilen
-
-`api_key`/`aws_secret_access_key`/etc. **niemals** als Klartext in ein
-committed `agent-profiles/*.json` schreiben. Diese Dateien liegen unter
-`.openhands/`, das per `.gitignore` teilweise ausgeschlossen ist — Profile
-mit echten Keys gehören zu den lokalen, nicht committeten Artefakten, oder
-die Keys werden über Env-Var-Referenzen/Secret-Store bezogen, sobald die
-Doku dafür einen deklarativen Mechanismus vorsieht (bei nächster Recherche
-prüfen, ob es einen `${ENV_VAR}`-Interpolationsmechanismus in `settings.json`
-gibt).
+LLM-`api_key`/Provider-Secrets werden über die Web-UI eingegeben und landen
+serverseitig im generierten `.openhands/`-Baum (§2) — der komplett per
+`.gitignore` ausgeschlossen ist, es gibt also kein committetes Artefakt, in
+dem versehentlich ein Klartext-Key landen könnte. Einzige Regel: Keys nicht
+zusätzlich in `compose.yml` oder `.env.example` hart kodieren (§9 Punkt 4).
 
 ---
 
@@ -393,27 +390,30 @@ als einzelner dokumentierter `curl`/API-Aufruf hier ergänzen:
 ## 9. Regeln für künftige KI-Agenten
 
 1. **Doku-Abgleich vor jeder Änderung.** Vor jeder Modifikation an Architektur,
-   Image-Tags, CLI-Flags, Env-Vars oder Config-Schema: live gegen
+   Image-Tags, CLI-Flags, Env-Vars oder Config-Verhalten: live gegen
    `https://docs.openhands.dev/` (primär) und
-   `https://github.com/OpenHands/OpenHands` (sekundär) verifizieren. Internes
-   Trainingswissen zu OpenHands gilt als potenziell veraltet — siehe die
-   Diskrepanzen in [§0](#0-zuerst-lesen-wissensstand-vs-realität-kritisch), die
-   bei der Erstellung dieser Datei entdeckt wurden. Wurde etwas neu verifiziert
-   und weicht von dieser Datei ab: diese Datei im selben Commit korrigieren.
+   `https://github.com/OpenHands/OpenHands` (sekundär) verifizieren — im
+   Zweifel zusätzlich per echtem `docker compose up` gegen den Container
+   selbst, wie in [§0](#0-zuerst-lesen-wissensstand-vs-realität-kritisch)
+   und [§2](#2-iac-dateistruktur-unter-openhands) dokumentiert. Internes
+   Trainingswissen zu OpenHands gilt als potenziell veraltet. Wurde etwas neu
+   verifiziert und weicht von dieser Datei ab: diese Datei im selben Commit
+   korrigieren.
 2. **Kein Verlassen von `./openhands/`.** Alle Artefakte (Compose, Configs,
    Dockerfiles) bleiben strikt innerhalb dieses Verzeichnisses. Keine globalen
    Docker-Objekte (Netzwerke, Volumes) ohne Namensraum-Präfix `openhands`.
 3. **Kein manuelles Host-Workaround.** Kein manuelles `docker exec` zum
    Nachinstallieren von Tools im laufenden Container, kein manuelles Editieren
-   von generiertem State unter `.openhands/cache`, `.openhands/storage` o.ä.
-   Jede dauerhafte Änderung muss als Diff in `compose.yml`, `.env.example`,
-   einem `agent-profiles/*.json`-Template oder `sandbox/Dockerfile` landen und
+   von generiertem State unter `.openhands/storage`, `.openhands/workspaces`,
+   `.openhands/automation` o.ä. (siehe §2). Jede dauerhafte Änderung muss als
+   Diff in `compose.yml`, `.env.example` oder `sandbox/Dockerfile` landen und
    committed werden. Wurde ein Workaround zur Diagnose genutzt: danach in IaC
    zurücküberführen, nicht stehen lassen.
 4. **Secrets bleiben deklarativ.** Neue host-spezifische Werte immer zuerst in
    `.env.example` als Platzhalter dokumentieren, dann erst in der lokalen
    `.env` (nicht committed) mit echtem Wert befüllen. Niemals echte Secrets in
-   `compose.yml` oder committeten `agent-profiles/*.json` hart kodieren.
+   `compose.yml` hart kodieren — LLM-/Provider-Keys gehören in die Web-UI
+   (§5), nicht in eine committete Datei.
 5. **Kein Wrapper-Skript ohne Not.** Start/Stop/Status laufen über plain
    `docker compose`-Befehle (§3). Ein neues Skript unter `openhands/` braucht
    eine explizite Begründung (z. B. CI-Health-Gate, WSL-IP-Ausgabe) — sonst
