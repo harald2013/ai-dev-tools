@@ -1,24 +1,13 @@
-# dev-workspace-agents-md
+# Workspace-Wegweiser
 
-Dieses Verzeichnis enthält ein reales, in Benutzung befindliches Beispiel für
-eine `AGENTS.md`, wie sie im lokalen `~/dev`-Verzeichnis eines Entwicklers
-liegt.
+Die [AGENTS.md](AGENTS.md) ist die versionierte Vorlage fuer
+`/home/harald/dev/AGENTS.md`. Ihre relativen Links beziehen sich auf
+`/home/harald/dev/`, nicht auf dieses Beispielverzeichnis.
 
-## Zweck
+Sie ordnet Auftraege den Repo-Einstiegen zu. Workspace-, Branch-, Test- und
+Release-Regeln stehen im jeweiligen Repo und werden ueber dessen `AGENTS.md`
+gefunden. Das gilt auch fuer den Einstieg vor dem ersten Ticket-Checkout.
 
-Die `AGENTS.md` dient AI Coding Agents (z. B. Claude Code) als Anleitung, wie
-sie sich in einem Verzeichnis mit mehreren Git-Repos zurechtfinden, in dem
-regelmäßig an verschiedenen Aufträgen/Tickets parallel gearbeitet wird. Sie
-legt fest:
-
-- wie pro Auftrag ein isolierter Checkout angelegt wird (Branch-, Ordner- und
-  PR-Namenskonvention),
-- wo ein dauerhafter Referenz-Checkout des Default-Branch liegt,
-- wie mit Ticket-Status (z. B. in Linear) umgegangen wird,
-- welche Ausnahmen einzelne Repos vom Standard-Workflow haben (z. B. ein Repo
-  ohne Ticket-Nummern, das direkt auf `main` bespielt wird).
-
-Das Beispiel soll zeigen, wie eine solche `AGENTS.md` für eine eigene
-Multi-Repo-Dev-Umgebung aussehen kann, und als Vorlage zum Anpassen dienen —
-nicht als universelle Lösung, sondern als konkretes, funktionierendes
-Beispiel für die eigene Struktur und Konventionen.
+Beim Anpassen lokale Datei und Vorlage gemeinsam aktualisieren. Vor dem
+Entfernen eines verlinkten Checkouts den Wegweiser auf einen verfuegbaren
+versionierten Einstieg umstellen.

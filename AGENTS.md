@@ -1,5 +1,8 @@
 # AGENTS.md — Repo-weite Regeln
 
+Workspace, Arbeitscheckout und Commit/Push-Ablauf:
+[.agents/workspace.md](.agents/workspace.md) vor Arbeitsbeginn lesen.
+
 Gilt für das gesamte Repository, nicht nur für einzelne Unterverzeichnisse.
 Unterverzeichnisse können eigene `AGENTS.md`-Dateien mit spezifischeren Regeln
 haben (z. B. `openhands/AGENTS.md`) — diese ergänzen die hier genannten Regeln,
