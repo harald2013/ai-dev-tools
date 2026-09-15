@@ -1,0 +1,9 @@
+[project]
+name = "agent-army"
+version = "0.1.0"
+description = "Lernprojekt: Agents selbst bauen — von der Hand-Loop bis zum Claude Agent SDK"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.75",       # Stufe 1 + 2: direkte Messages-API
+    "claude-agent-sdk>=0.1", # Stufe 3: Claude Code als Bibliothek
+]

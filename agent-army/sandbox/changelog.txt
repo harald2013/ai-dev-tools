@@ -1,0 +1,2 @@
+2026-09-01  Reindex-Job von 20 auf 40 Minuten gewachsen.
+2026-08-14  Deploy-Fenster auf 18:00 vorgezogen.

@@ -1,0 +1,6 @@
+[deploy]
+day = "friday"
+window_start = "18:00"
+
+[reindex]
+duration_minutes = 40
