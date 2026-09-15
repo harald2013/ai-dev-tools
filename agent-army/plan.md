@@ -1,8 +1,9 @@
 # Lernplan: Agents selbst bauen
 
 Ziel: **Stufe 3 (Claude Agent SDK) sicher beherrschen.** Stufe 1 und 2 sind
-bewusst kurz — sie existieren nur, damit die Mechanik unter Stufe 3 keine
-Blackbox ist.
+bewusst kurz — aber sie sind keine Vorstufe, die man danach wegwirft: fuer
+einen Agent gegen eigene Systeme sind sie die richtige Variante. Siehe
+[Welche Stufe wofuer](#welche-stufe-wofuer).
 
 Sprache: Python. Ein einziges uv-Projekt fuer alle Stufen (`pyproject.toml`).
 
@@ -18,6 +19,56 @@ Wichtig: Stufe 1/2 und Stufe 3 sind **zwei verschiedene Pakete**, nicht zwei
 Ausbaustufen desselben. Stufe 1/2 reden direkt mit der Messages-API. Stufe 3
 ist Claude Code als Bibliothek: es startet die Claude-Code-CLI als Subprozess
 und spricht ueber sie mit dem Modell.
+
+---
+
+## Welche Stufe wofuer
+
+Die Leitfrage:
+
+> **Ist das Dateisystem / die Shell der Arbeitsgegenstand?** ⇒ Stufe 3.
+> **Ist das Modell ein Schritt in deinem Programm?** ⇒ Stufe 1/2.
+
+### Gruende fuer Stufe 1/2 (direkte Messages-API)
+
+- **Die Tools sind keine Dateien.** DB-Abfrage, Ticket-System, ERP, interne
+  HTTP-API. Der ganze Wert von Stufe 3 sind Read/Write/Edit/Bash/Grep plus die
+  Kontextverwaltung dafuer. Fasst der Agent nie eine Datei an, schleppt man
+  einen Harness mit, den man nicht benutzt — inklusive seines Grundballasts an
+  System-Prompt und Tool-Definitionen bei *jedem* Turn.
+- **Es ist gar kein Agent.** Klassifizieren, extrahieren, zusammenfassen: ein
+  Aufruf, keine Schleife. Da ist Stufe 3 die falsche Form, nicht bloss die
+  teurere.
+- **Deployment.** Stufe 1/2 ist eine reine Bibliothek (Lambda, Container,
+  CI-Job). Stufe 3 startet die Claude-Code-CLI als **Subprozess** — das Binary
+  muss dort liegen, laufen duerfen und mitversioniert werden.
+- **Kontrolle ueber den Request.** Caching-Breakpoints selbst setzen,
+  Batch-API (50 % billiger), Structured Outputs, `count_tokens` vor dem
+  Absenden, Modell/Effort pro Aufruf wechseln. Stufe 3 abstrahiert das weg.
+- **Das Modell mitten in eigener Logik.** Transaktion, State Machine,
+  Retry-Policy, Freigabe durch einen Menschen in der eigenen UI — man besitzt
+  die Schleife und kann zwischen zwei Turns tun, was man will.
+- **Andere Sprachen.** Agent SDK gibt es nur fuer Python und TypeScript, die
+  Messages-API-SDKs fuer sieben Sprachen (relevant, falls das mal auf der JVM
+  landet).
+- **Kostentransparenz.** Pro Request sichtbar, was rausgeht. Zum Vergleich:
+  der 3.1-Lauf hat fuer eine triviale Frage ueber drei winzige Dateien
+  **$0.07 in 6 Turns** gekostet. Kein Skandal — aber ein Harness hat einen
+  Preis.
+
+### Gruende fuer Stufe 3
+
+Codebase-Arbeit, Shell, lange Laeufe (Kontext-Kompaktierung),
+`resume`/Sessions, Subagents, Permission-Modelle, Skills/MCP/Plugins. Das
+selbst zu bauen sind Monate, kein Nachmittag.
+
+### Stufe 1 vs. Stufe 2
+
+Kein inhaltlicher Unterschied — Stufe 2 ist Stufe 1 mit weniger Boilerplate.
+Stufe 1 nimmt man nur fuer das, was der Runner nicht herausgibt: `pause_turn`
+selbst behandeln, die Historie besitzen (der Runner haelt sie intern), ein
+eigener Transport, oder keine Beta-Abhaengigkeit wollen — der Tool Runner ist
+Beta.
 
 ---
 
