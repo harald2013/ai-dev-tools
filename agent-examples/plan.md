@@ -153,9 +153,11 @@ Schritte, aufeinander aufbauend:
       `agents={"name": AgentDefinition(...)}`: Fan-out auf spezialisierte
       Agents mit eigenem Prompt, eigenem Toolset, eigenem Modell.
       Das ist die "agent army".
-- [ ] **3.7 Eigener Agent** — `army/`
+- [ ] **3.7 Eigener Agent** — `eigener_agent/`
       Ein Agent fuer eine echte eigene Aufgabe, der 3.2–3.6 kombiniert.
-      Aufgabe wird festgelegt, wenn 3.1–3.6 stehen.
+      Aufgabe wird festgelegt, wenn 3.1–3.6 stehen. Das ist der
+      Abschlusspunkt dieses Lernprojekts — was danach produktiv laeuft,
+      gehoert nicht mehr hierher.
 
 ## Voraussetzungen
 

@@ -1,5 +1,5 @@
 [project]
-name = "agent-army"
+name = "agent-examples"
 version = "0.1.0"
 description = "Lernprojekt: Agents selbst bauen — von der Hand-Loop bis zum Claude Agent SDK"
 requires-python = ">=3.10"
