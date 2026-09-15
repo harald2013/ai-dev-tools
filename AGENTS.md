@@ -3,28 +3,29 @@
 Workspace, Arbeitscheckout und Commit/Push-Ablauf:
 [.agents/workspace.md](.agents/workspace.md) vor Arbeitsbeginn lesen.
 
-Gilt für das gesamte Repository, nicht nur für einzelne Unterverzeichnisse.
-Unterverzeichnisse können eigene `AGENTS.md`-Dateien mit spezifischeren Regeln
-haben (z. B. `openhands/AGENTS.md`) — diese ergänzen die hier genannten Regeln,
-widersprechen ihnen aber nicht.
+Gilt repo-weit. Unterverzeichnisse können eigene `AGENTS.md` mit spezifischeren
+Regeln haben (z. B. `openhands/AGENTS.md`); diese ergänzen die hier genannten
+Regeln, widersprechen ihnen nicht.
 
-## Dokumentationsprinzip: Kein historischer Kontext in Doku-Dateien
+## Zweck des Repos
 
-Dokumentation in diesem Repository (`AGENTS.md`, `README.md`, sonstige
-`*.md`-Dateien) beschreibt ausschließlich den aktuell gültigen Soll-/Ist-
-Zustand — nicht *wie es früher war* oder *was entfernt/ersetzt wurde* ("früher
-gab es X, das wurde entfernt, weil..."). Diese Art von Information gehört
-nicht in laufende Doku, weil sie mit jeder weiteren Änderung veraltet,
-verwirrt (welcher Teil ist noch relevant, welcher ist nur Rückblick?) und die
-Datei aufbläht.
+Spielwiese für AI-Tests. Jedes Unterverzeichnis im Root behandelt ein eigenes,
+in sich abgeschlossenes Thema. Die Themen sind unabhängig voneinander und
+brauchen keine Verbindung zu den anderen Root-Verzeichnissen.
 
-- **Wer/warum/wann etwas geändert wurde:** gehört in die **Commit-Historie**
-  (`git log`) — die Begründung steht in der Commit-Message, nicht im Code oder
-  in der Doku.
-- **Eine bewusste, folgenreiche Architektur-/Design-Entscheidung** mit
-  Alternativen und Trade-offs, die für künftige Entscheidungen relevant
-  bleibt: **nur auf explizite Entscheidung hin** als eigenes ADR ablegen
-  (z. B. `docs/adr/0001-<titel>.md`, Format frei wählbar, z. B. MADR). Ohne
-  einen solchen expliziten Beschluss wird **kein** ADR-Verzeichnis oder
-  -Eintrag angelegt — nicht auf Vorrat.
-- Diese Regel gilt repo-weit, für jede Doku-Datei in jedem Unterverzeichnis.
+Arbeitsweise: Es wird immer in genau einem ausgewählten Verzeichnis gearbeitet.
+Änderungen bleiben in diesem Verzeichnis; andere Themen werden nicht angefasst
+und keine Querverbindungen zwischen ihnen erzeugt.
+
+## Doku: kein historischer Kontext
+
+Doku (`AGENTS.md`, `README.md`, alle `*.md`) beschreibt nur den aktuell
+gültigen Soll-/Ist-Zustand — nicht, wie es früher war oder was entfernt bzw.
+ersetzt wurde.
+
+- **Wer/warum/wann geändert:** gehört in die Commit-Message (`git log`), nicht
+  in Doku oder Code.
+- **Folgenreiche Architektur-/Design-Entscheidung:** nur auf explizite
+  Entscheidung hin als ADR ablegen (z. B. `docs/adr/0001-<titel>.md`, Format
+  frei). Ohne expliziten Beschluss kein ADR-Verzeichnis und kein Eintrag —
+  nicht auf Vorrat.
